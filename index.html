@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Jesus Simulator</title>
+<meta name="description" content="JESUS SIMULATOR: El Héroe de Guamúchil. Un GTA 8-bit de Kazoo Studios.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; background: #07050c; overflow: hidden; touch-action: none; }
+  body { display: flex; align-items: center; justify-content: center; font-family: 'Press Start 2P', monospace; }
+  #game { image-rendering: pixelated; image-rendering: crisp-edges; display: block; background: #000; box-shadow: 0 0 40px rgba(255, 120, 200, 0.15); }
+  #touch { display: none; position: fixed; inset: 0; pointer-events: none; user-select: none; -webkit-user-select: none; }
+  #touch .b { position: absolute; pointer-events: auto; width: 54px; height: 54px; border-radius: 12px; background: rgba(255, 255, 255, 0.14); border: 2px solid rgba(255, 255, 255, 0.35); color: #fff; font: 10px 'Press Start 2P', monospace; display: flex; align-items: center; justify-content: center; }
+  #touch .b.on { background: rgba(255, 210, 90, 0.45); }
+  #touch .s { width: 40px; height: 32px; font-size: 8px; border-radius: 8px; }
+  #noscript { color: #fff; padding: 20px; }
+</style>
+</head>
+<body>
+<canvas id="game" width="480" height="270"></canvas>
+<div id="touch">
+  <div class="b" data-a="up" style="left:66px;bottom:126px">▲</div>
+  <div class="b" data-a="down" style="left:66px;bottom:16px">▼</div>
+  <div class="b" data-a="left" style="left:10px;bottom:71px">◀</div>
+  <div class="b" data-a="right" style="left:122px;bottom:71px">▶</div>
+  <div class="b" data-a="act" style="right:16px;bottom:40px;width:64px;height:64px;border-radius:32px">A</div>
+  <div class="b" data-a="use" style="right:92px;bottom:20px;border-radius:27px">E</div>
+  <div class="b" data-a="run" style="right:92px;bottom:86px;border-radius:27px">RUN</div>
+  <div class="b s" data-a="miracle" style="right:16px;bottom:116px">Q</div>
+  <div class="b s" data-a="weapon" style="right:60px;bottom:150px">ARMA</div>
+  <div class="b s" data-a="phone" style="right:10px;top:90px">CEL</div>
+  <div class="b s" data-a="map" style="right:56px;top:90px">MAPA</div>
+  <div class="b s" data-a="inv" style="right:102px;top:90px">FIG</div>
+  <div class="b s" data-a="radio" style="right:148px;top:90px">RAD</div>
+  <div class="b s" data-a="back" style="left:10px;top:10px">ESC</div>
+</div>
+<noscript><div id="noscript">Necesitas JavaScript para jugar Jesus Simulator.</div></noscript>
+<script src="js/engine.js?v=4"></script>
+<script src="js/data.js?v=4"></script>
+<script src="js/gfx.js?v=4"></script>
+<script src="js/world.js?v=4"></script>
+<script src="js/entities.js?v=4"></script>
+<script src="js/missions.js?v=4"></script>
+<script src="js/ui.js?v=4"></script>
+<script src="js/game.js?v=4"></script>
+</body>
+</html>
