@@ -237,9 +237,13 @@ const Game = {
     }
     const sd = Missions.storyDef();
     let act = null;
+    let blocked = null;
     if (sd && !Missions.active) {
       const l = LOC(sd.start);
-      if (dist(PL.x, PL.y, l.x, l.y) < 24) act = { p: '[E] MISIÓN: ' + sd.name, fn: () => this.tryStory(sd) };
+      if (dist(PL.x, PL.y, l.x, l.y) < 24) {
+        blocked = this.storyBlock(sd);
+        if (!blocked) act = { p: '[E] MISIÓN: ' + sd.name, fn: () => this.tryStory(sd) };
+      }
     }
     if (!act) for (const b of World.doors) {
       if (dist(PL.x, PL.y, b.spot.x, b.spot.y) < 16) { act = { p: '[E] ' + (LOC_NAMES[b.id] || b.label), fn: () => Shops.open(b.id) }; break; }
@@ -253,11 +257,18 @@ const Game = {
       const p = E.peds.find(p => !p.hostile && p.state !== 'down' && p.state !== 'rescue' && !p.mission && dist(p.x, p.y, PL.x, PL.y) < 18);
       if (p) act = { p: '[E] Hablar', fn: () => this.talkTo(p) };
     }
+    if (blocked && !act) act = { p: '[E] MISIÓN BLOQUEADA', fn: () => this.tryStory(sd) };
     if (act) { this.prompt = act.p; if (Input.hit('use')) act.fn(); }
+    if (blocked && this.blockedShown !== sd) { this.blockedShown = sd; UI.toast('Misión "' + sd.name + '": ' + blocked, '#ffb060'); }
+  },
+  storyBlock(sd) {
+    if (sd.req && !sd.req()) return sd.reqText;
+    if (sd.night && !this.isNight()) return 'Misión de NOCHE (20:00 - 4:00). En casa puedes ver anime hasta la noche.';
+    return null;
   },
   tryStory(sd) {
-    if (sd.req && !sd.req()) { UI.toast(sd.reqText, '#ff8080'); Sound.sfx('miss'); return; }
-    if (sd.night && !this.isNight()) { UI.toast('Esta misión es de NOCHE (20:00 - 4:00). Duerme o haz otras cosas mientras.', '#a0a0ff'); return; }
+    const b = this.storyBlock(sd);
+    if (b) { UI.toast(b, '#ff8080'); Sound.sfx('miss'); return; }
     Missions.start(sd);
   },
   talkTo(p) {

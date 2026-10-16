@@ -215,7 +215,7 @@ function applyHit(p, dmg, kx, ky) {
   if (p.hp <= 0) koPed(p);
   else if (!p.hostile) {
     if (p.type === 'cop') { Police.raise(2); p.copAngry = true; }
-    else { say(p, pick(LINES.hit)); p.state = 'flee'; p.t = 4; if (S.wanted === 0 && chance(.35)) Police.raise(1); }
+    else { say(p, pick(LINES.hit)); p.state = 'flee'; p.t = 4; if (S.wanted === 0 && Police.copNear(220)) Police.raise(1); }
   }
 }
 function koPed(p) {
@@ -230,7 +230,7 @@ function koPed(p) {
   } else {
     p.state = 'down'; p.downT = 4; p.hp = 0;
     if (p.type === 'cop') Police.raise(1, 5);
-    else Police.raise(S.wanted < 2 ? 1 : 0, 2);
+    else Police.raise(S.wanted < 1 && (Police.copNear(260) || chance(.3)) ? 1 : 0, 2);
     if (chance(.5)) dropCash(p.x, p.y, rndi(5, 30));
   }
 }
@@ -266,7 +266,7 @@ function enterCar(c) {
     drv.state = 'flee'; drv.t = 5; say(drv, pick(LINES.carStolen));
     if (!pedBlocked(drv.x, drv.y)) E.peds.push(drv);
     if (c.type === 'police') Police.raise(2);
-    else if (Police.copNear(260) || chance(.25)) Police.raise(1);
+    else if (Police.copNear(200) || chance(.08)) Police.raise(1, 2);
     Game.stat('carros');
   }
   c.ai = 'player'; c.persistent = true; c.siren = false;
@@ -331,7 +331,7 @@ function carMove(car, dt) {
   if (!carHits(car, car.x, ny, car.a)) { car.y = ny; car.v *= 0.9; return 'slide'; }
   const imp = Math.abs(car.v);
   car.v = -car.v * 0.3;
-  if (imp > 50) { car.hp -= imp * 0.07; if (onScreen(car.x, car.y)) Sound.sfx(imp > 110 ? 'crash' : 'bump'); burst(car.x + Math.cos(car.a) * car.L / 2, car.y + Math.sin(car.a) * car.L / 2, ['#c0c0c0', '#ffe060'], 4, 50); }
+  if (imp > 60) { car.hp -= imp * 0.05; if (onScreen(car.x, car.y)) Sound.sfx(imp > 110 ? 'crash' : 'bump'); burst(car.x + Math.cos(car.a) * car.L / 2, car.y + Math.sin(car.a) * car.L / 2, ['#c0c0c0', '#ffe060'], 4, 50); }
   return 'hit';
 }
 
@@ -404,6 +404,9 @@ function updateLaneCar(car, dt) {
       if (dy * fy > 0 && Math.abs(dy) < 70 && Math.abs(car.x - Train.x) < 600) tv = 0;
     }
   }
+  if (tv < 6 && car.ai !== 'flee') car.blockT = (car.blockT || 0) + dt; else car.blockT = 0;
+  if (car.ghostT > 0) tv = car.cruise;
+  else if (car.blockT > (car.ai === 'tail' ? 1 : 4)) { car.ghostT = 1.5; car.blockT = 0; tv = car.cruise; }
   car.honkT -= dt;
   const acc = tv > car.v ? car.acc * 0.7 : car.acc * 2.5;
   car.v += clamp(tv - car.v, -acc * dt, acc * dt);
@@ -448,6 +451,7 @@ function updateSeekCar(car, dt, tx, ty) {
     const close = dist(car.x, car.y, tx, ty);
     let tgt = car.max * (Math.abs(d) > 1.1 ? 0.45 : 1);
     if (car.ai === 'cop' && !PL.car && close < 60) tgt = 0;
+    if (car.ai === 'cop' && PL.car && close < 50) tgt = Math.min(tgt, Math.abs(PL.car.v) + 20);
     car.v += clamp(tgt - car.v, -car.acc * 2 * dt, car.acc * dt);
   }
   const r = carMove(car, dt);
@@ -456,6 +460,8 @@ function updateSeekCar(car, dt, tx, ty) {
 }
 
 function updateCar(car, dt) {
+  if (car.hitCd > 0) car.hitCd -= dt;
+  if (car.ghostT > 0) car.ghostT -= dt;
   if (car.dead) { car.deadT += dt; return; }
   if (car.hp <= 0) {
     car.burnT += dt;
@@ -504,6 +510,7 @@ function collideCars() {
       const b = cs[j];
       const dx = b.x - a.x, dy = b.y - a.y;
       if (Math.abs(dx) > 30 || Math.abs(dy) > 30) continue;
+      if ((a.ghostT > 0 || a.ai === 'flee' || a.ai === 'tail') && b !== PL.car && b.ai !== 'cop' || (b.ghostT > 0 || b.ai === 'flee' || b.ai === 'tail') && a !== PL.car && a.ai !== 'cop') continue;
       const ra = (a.L + a.Wd) / 4.2, rb = (b.L + b.Wd) / 4.2;
       const d = Math.hypot(dx, dy);
       if (d >= ra + rb || d === 0) continue;
@@ -517,12 +524,14 @@ function collideCars() {
       const tryPush = (c, px, py) => { if (!carHits(c, c.x + px, c.y + py, c.a)) { c.x += px; c.y += py; } };
       tryPush(a, -nx * ov * pushA, -ny * ov * pushA);
       tryPush(b, nx * ov * (1 - pushA), ny * ov * (1 - pushA));
-      if (rel > 25) {
-        const dmg = rel * 0.09;
+      if (rel > 25 && !(a.hitCd > 0) && !(b.hitCd > 0)) {
+        a.hitCd = b.hitCd = 0.6;
+        const cop = a.ai === 'cop' || b.ai === 'cop';
+        const dmg = rel * (cop ? 0.04 : 0.07);
         a.hp -= dmg; b.hp -= dmg;
         a.v *= 0.45; b.v *= 0.45;
         if (onScreen(a.x, a.y)) { Sound.sfx(rel > 100 ? 'crash' : 'bump'); burst((a.x + b.x) / 2, (a.y + b.y) / 2, ['#c0c0c0', '#ffe060'], 5, 60); }
-        if (a === PL.car || b === PL.car) { Cam.shake = Math.max(Cam.shake, rel / 25); const o = a === PL.car ? b : a; if (o.ai === 'traffic' && rel > 60 && chance(.5)) Police.raise(Police.copNear(250) ? 1 : 0, 2); }
+        if (a === PL.car || b === PL.car) { Cam.shake = Math.max(Cam.shake, rel / 25); const o = a === PL.car ? b : a; if (o.ai === 'traffic' && rel > 90 && S.wanted === 0 && Police.copNear(180)) Police.raise(1, 1); }
       }
     }
   }
@@ -544,7 +553,7 @@ function collideCars() {
       if (p.hostile) { p.hp -= sp * 0.55; moveEnt(p, kx, ky); Sound.sfx('punch'); burst(p.x, p.y - 6, '#ffffff', 6); if (p.hp <= 0) koPed(p); }
       else {
         moveEnt(p, kx, ky); p.state = 'down'; p.downT = 4; Sound.sfx('punch');
-        if (c === PL.car) { Police.raise(p.type === 'cop' ? 2 : 1, p.type === 'cop' ? 5 : 3); Game.stat('atropellos'); addCope(-2); }
+        if (c === PL.car) { Police.raise(p.type === 'cop' ? 2 : (S.wanted === 0 && (Police.copNear(250) || chance(.35)) ? 1 : 0), p.type === 'cop' ? 5 : 2); Game.stat('atropellos'); addCope(-2); }
       }
       c.v *= 0.85;
     }
@@ -812,7 +821,7 @@ const Police = {
       return;
     }
     const cops = E.cars.filter(c => c.ai === 'cop' && !c.dead);
-    const want = Math.min(5, S.wanted + (S.wanted >= 3 ? 1 : 0));
+    const want = Math.min(4, Math.ceil(S.wanted * 0.8));
     this.spawnT -= dt;
     if (cops.length < want && this.spawnT <= 0) {
       const p = randomLanePos(300, 520);
@@ -822,11 +831,11 @@ const Police = {
         c.max *= 0.85 + S.wanted * 0.05;
         E.cars.push(c);
       }
-      this.spawnT = 7 / S.wanted;
+      this.spawnT = 12 / S.wanted;
     }
     const seen = this.copNear(230);
     if (seen) this.unseen = 0; else this.unseen += dt;
-    const need = 9 + S.wanted * 3.5;
+    const need = 6 + S.wanted * 2.5;
     if (this.unseen > need) {
       S.wanted--; this.unseen = 0;
       UI.toast(S.wanted ? 'Funa bajó: ' + '*'.repeat(S.wanted) : 'Ya nadie te busca. Por ahora.', '#a0ffa0');
